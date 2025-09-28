@@ -7,33 +7,60 @@ export interface Post {
   author: string
   createdAt: string
   updatedAt: string
+  clickCount?: number
 }
 
 export const usePosts = () => {
   const [posts, setPosts] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
 
   // Posts'ları yükle
-  const fetchPosts = useCallback(async () => {
+  const fetchPosts = useCallback(async (page = 1, date?: string, append = false) => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/posts')
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '20'
+      })
+      if (date) {
+        params.append('date', date)
+      }
+      
+      const response = await fetch(`/api/posts?${params}`)
       if (response.ok) {
         const data = await response.json()
-        setPosts(data)
+        const normalized = (data as Post[]).map(p => ({ ...p, clickCount: p.clickCount ?? 0 }))
+        
+        if (append) {
+          setPosts(prev => [...prev, ...normalized])
+        } else {
+          setPosts(normalized)
+        }
+        
+        setHasMore(normalized.length === 20)
+        setCurrentPage(page)
       } else {
-        toast.error('Posts yüklenirken hata oluştu')
+        toast.error('Error loading posts')
       }
     } catch {
-      toast.error('Posts yüklenirken hata oluştu')
+      toast.error('Error loading posts')
     } finally {
       setIsLoading(false)
     }
   }, [])
 
+  // Daha fazla post yükle
+  const loadMore = useCallback(async (date?: string) => {
+    if (!isLoading && hasMore) {
+      await fetchPosts(currentPage + 1, date, true)
+    }
+  }, [fetchPosts, currentPage, hasMore, isLoading])
+
   // Yeni post oluştur
-  const createPost = useCallback(async (content: string, author: string) => {
+  const createPost = useCallback(async (content: string, author?: string) => {
     try {
       setIsCreating(true)
       const response = await fetch('/api/posts', {
@@ -47,15 +74,15 @@ export const usePosts = () => {
       if (response.ok) {
         const newPost = await response.json()
         setPosts(prevPosts => [newPost, ...prevPosts])
-        toast.success('Post başarıyla oluşturuldu!')
+        toast.success('Post created successfully!')
         return newPost
       } else {
         const error = await response.json()
-        toast.error(error.error || 'Post oluşturulurken hata oluştu')
+        toast.error(error.error || 'Error creating post')
         return null
       }
     } catch {
-      toast.error('Post oluşturulurken hata oluştu')
+      toast.error('Error creating post')
       return null
     } finally {
       setIsCreating(false)
@@ -71,14 +98,14 @@ export const usePosts = () => {
 
       if (response.ok) {
         setPosts(prevPosts => prevPosts.filter(post => post.id !== postId))
-        toast.success('Post silindi')
+        toast.success('Post deleted')
         return true
       } else {
-        toast.error('Post silinirken hata oluştu')
+        toast.error('Error deleting post')
         return false
       }
     } catch {
-      toast.error('Post silinirken hata oluştu')
+      toast.error('Error deleting post')
       return false
     }
   }, [])
@@ -101,15 +128,34 @@ export const usePosts = () => {
             post.id === postId ? updatedPost : post
           )
         )
-        toast.success('Post güncellendi')
+        toast.success('Post updated')
         return updatedPost
       } else {
-        toast.error('Post güncellenirken hata oluştu')
+        toast.error('Error updating post')
         return null
       }
     } catch {
-      toast.error('Post güncellenirken hata oluştu')
+      toast.error('Error updating post')
       return null
+    }
+  }, [])
+
+  const incrementClick = useCallback(async (postId: string) => {
+    try {
+      // optimistic update
+      console.log('[incrementClick] optimistic +1 for', postId)
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, clickCount: (p.clickCount ?? 0) + 1 } : p))
+      const res = await fetch(`/api/posts/${postId}`, { method: 'PATCH' })
+      if (!res.ok) {
+        throw new Error('Increment failed')
+      }
+      const updated = await res.json()
+      console.log('[incrementClick] server updated', postId, 'clickCount:', updated.clickCount)
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, clickCount: updated.clickCount ?? (p.clickCount ?? 0) } : p))
+    } catch {
+      // rollback minimal (optional)
+      console.log('[incrementClick] failed, rollback -1 for', postId)
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, clickCount: Math.max(0, (p.clickCount ?? 1) - 1) } : p))
     }
   }, [])
 
@@ -122,10 +168,14 @@ export const usePosts = () => {
     posts,
     isLoading,
     isCreating,
+    hasMore,
+    currentPage,
     fetchPosts,
+    loadMore,
     createPost,
     deletePost,
     updatePost,
+    incrementClick,
     setPosts,
   }
 }

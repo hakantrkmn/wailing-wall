@@ -21,4 +21,5 @@ model post {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   author    String
+  clickCount Int     @default(0)
 }

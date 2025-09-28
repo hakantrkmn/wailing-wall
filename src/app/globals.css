@@ -120,3 +120,61 @@
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes breeze-flow {
+  0% { transform: translateX(-20%) translateY(0) rotate(0deg); opacity: 0.08; }
+  25% { transform: translateX(-10%) translateY(-2%) rotate(1deg); opacity: 0.12; }
+  50% { transform: translateX(0%) translateY(1%) rotate(-1deg); opacity: 0.15; }
+  75% { transform: translateX(10%) translateY(-1%) rotate(0.5deg); opacity: 0.1; }
+  100% { transform: translateX(20%) translateY(0) rotate(0deg); opacity: 0.08; }
+}
+
+.wind-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, rgba(148, 163, 184, 0.12), rgba(148, 163, 184, 0.05));
+  mask-image: radial-gradient(circle at 20% 20%, rgba(255,255,255,0.25), transparent 60%),
+              radial-gradient(circle at 80% 30%, rgba(255,255,255,0.2), transparent 55%),
+              radial-gradient(circle at 40% 70%, rgba(255,255,255,0.15), transparent 65%);
+  animation: breeze-flow 18s linear infinite alternate;
+  mix-blend-mode: overlay;
+}
+
+@keyframes wind-line-sway {
+  0% { transform: translate(-30%, -15%) rotate(3deg); opacity: 0; }
+  15% { opacity: 0.7; }
+  35% { transform: translate(40%, -8%) rotate(-2deg); opacity: 0.8; }
+  65% { transform: translate(90%, 8%) rotate(2deg); opacity: 0.7; }
+  85% { opacity: 0.3; }
+  100% { transform: translate(130%, 0) rotate(0deg); opacity: 0; }
+}
+
+.wind-lines {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.wind-lines::before,
+.wind-lines::after {
+  content: "";
+  position: absolute;
+  width: 160%;
+  height: 4px;
+  top: 15%;
+  left: -40%;
+  background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.6), transparent);
+  border-radius: 999px;
+  filter: blur(1.5px);
+  animation: wind-line-sway 10s ease-in-out infinite;
+  z-index: 1;
+}
+
+.wind-lines::after {
+  top: 65%;
+  animation-delay: 5s;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.5), transparent);
+  z-index: 1;
+}

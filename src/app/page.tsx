@@ -1,54 +1,55 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useEffect, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { UsernameModal } from "@/components/username-modal"
 import { useUser } from "@/hooks/useUser"
 import { usePosts } from "@/hooks/usePosts"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { CreatePost } from "@/components/create-post"
+import { NotesWall } from "@/components/notes-wall"
 
 export default function Page() {
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const { user, setUsername, isLoading: userLoading } = useUser()
-  const { posts, isLoading: postsLoading, setPosts } = usePosts()
+  const { user, setUsername } = useUser()
+  const { posts, isLoading: postsLoading, setPosts, incrementClick, hasMore, loadMore, fetchPosts } = usePosts()
+  const [selectedDate, setSelectedDate] = useState<string>('')
 
-  // Kullanıcı adı yoksa modal aç, varsa kapat (sadece yükleme tamamlandıktan sonra)
   useEffect(() => {
-    if (!userLoading) {
-      if (!user) {
-        setIsModalOpen(true)
-      } else {
-        setIsModalOpen(false)
+    console.log('[clickCounts]', posts.map(p => ({ id: p.id, c: p.clickCount ?? 0 })))
+  }, [posts])
+
+  // Infinite scroll handler
+  const handleScroll = useCallback(() => {
+    if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 1000) {
+      if (hasMore && !postsLoading) {
+        loadMore(selectedDate)
       }
     }
-  }, [user, userLoading])
+  }, [hasMore, postsLoading, loadMore, selectedDate])
 
+  useEffect(() => {
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [handleScroll])
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('tr-TR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+  // Tarih değiştiğinde filtrele
+  const handleDateChange = (date: string) => {
+    setSelectedDate(date)
+    fetchPosts(1, date)
   }
 
-  // Sayfa yüklenirken loading göster
-  if (userLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <p className="text-gray-500">Yükleniyor...</p>
-        </div>
-      </div>
-    )
+  // Tarih filtresini temizle
+  const clearDateFilter = () => {
+    setSelectedDate('')
+    fetchPosts(1)
   }
 
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="relative min-h-screen py-8 overflow-hidden" style={{ backgroundColor: "#ffffff" }}>
+      <div className="pointer-events-none absolute inset-0 wind-overlay" aria-hidden />
+      <div className="pointer-events-none absolute inset-0 wind-lines" aria-hidden style={{ zIndex: 1 }} />
       <div className="max-w-4xl mx-auto px-4">
         {/* Header */}
         <div className="mb-8">
@@ -57,78 +58,98 @@ export default function Page() {
               <h1 className="text-3xl font-bold text-gray-900">
                 Wailing Wall
               </h1>
-              {user ? (
-                <p className="text-gray-600 mt-2">
-                  Hoş geldin, {user}! 👋
-                </p>
-              ) : (
-                <p className="text-gray-600 mt-2">
-                  Kullanıcı adınızı belirleyin
-                </p>
-              )}
+              <p className="text-gray-600 mt-2">
+                Stick your anonymous notes to the wall.
+              </p>
             </div>
-            {user && (
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setUsername("")
-                  setIsModalOpen(true)
-                }}
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-600">
+                {user ? `User: ${user}` : "User: Anonymous"}
+              </span>
+              <Button
+                variant="outline"
+                onClick={() => setIsModalOpen(true)}
               >
-                Kullanıcı Adını Değiştir
+                {user ? "Change" : "Set Username"}
               </Button>
-            )}
+            </div>
           </div>
         </div>
 
-        {/* Create Post - sadece user varsa göster */}
-        {user && <CreatePost onPostCreated={(post) => {
-          setPosts([post, ...posts])
-        }} />}
+        {/* Create Post - her zaman anonim */}
+        <CreatePost onPostCreated={(post) => {
+          setPosts(prev => [post, ...(prev ?? posts)])
+        }} />
+      </div>
 
-        {/* Posts List */}
-        <div className="space-y-4">
-          {postsLoading ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500">Posts yükleniyor...</p>
+      {/* Notes Wall - full width with side padding */}
+      <div className="w-full px-4 sm:px-6 md:px-8 mt-6">
+        {/* Date Filter */}
+        <div className="max-w-4xl mx-auto mb-4">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <label htmlFor="date-filter" className="text-sm text-gray-600">
+                Filter by date:
+              </label>
+              <input
+                id="date-filter"
+                type="date"
+                value={selectedDate}
+                onChange={(e) => handleDateChange(e.target.value)}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500"
+              />
             </div>
-          ) : posts.length === 0 ? (
+            {selectedDate && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearDateFilter}
+                className="text-xs"
+              >
+                Clear
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Select a date to view notes from that specific day. Leave empty to see all notes.
+          </p>
+        </div>
+        {postsLoading ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500">Loading notes...</p>
+          </div>
+        ) : posts.length === 0 ? (
+          <div className="max-w-4xl mx-auto">
             <Card>
               <CardContent className="text-center py-8">
-                <p className="text-gray-500">Henüz hiç post yok.</p>
+                <p className="text-gray-500">No notes yet.</p>
                 <p className="text-sm text-gray-400 mt-2">
-                  {user ? "İlk postu sen yaz!" : "Kullanıcı adınızı belirleyin ve ilk postu yazın!"}
+                  Be the first to stick a note!
                 </p>
               </CardContent>
             </Card>
-          ) : (
-            posts.map((post) => (
-              <Card key={post.id} className="hover:shadow-md transition-shadow">
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg">
-                      {post.author}
-                    </CardTitle>
-                    <span className="text-sm text-gray-500">
-                      {formatDate(post.createdAt)}
-                    </span>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-700 whitespace-pre-wrap">
-                    {post.content}
-                  </p>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
+          </div>
+        ) : (
+          <>
+            <NotesWall onNoteClick={(p) => incrementClick(p.id)} posts={[...posts].sort((a, b) => {
+              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            })} />
+            {hasMore && (
+              <div className="text-center py-4">
+                <p className="text-gray-500 text-sm">Scroll down to load more notes...</p>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       <UsernameModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onUsernameSet={setUsername}
+        onUsernameSet={(name) => {
+          setUsername(name)
+          setIsModalOpen(false)
+        }}
       />
     </div>
   )
