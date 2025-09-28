@@ -12,26 +12,19 @@ import { NotesWall } from "@/components/notes-wall"
 export default function Page() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const { user, setUsername } = useUser()
-  const { posts, isLoading: postsLoading, setPosts, incrementClick, hasMore, loadMore, fetchPosts } = usePosts()
+  const { posts, isLoading: postsLoading, isLoadingMore, setPosts, incrementClick, hasMore, loadMore, fetchPosts } = usePosts()
   const [selectedDate, setSelectedDate] = useState<string>('')
 
   useEffect(() => {
     console.log('[clickCounts]', posts.map(p => ({ id: p.id, c: p.clickCount ?? 0 })))
   }, [posts])
 
-  // Infinite scroll handler
-  const handleScroll = useCallback(() => {
-    if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 1000) {
-      if (hasMore && !postsLoading) {
-        loadMore(selectedDate)
-      }
+  // Load more handler
+  const handleLoadMore = useCallback(async () => {
+    if (hasMore && !postsLoading && !isLoadingMore) {
+      await loadMore(selectedDate)
     }
-  }, [hasMore, postsLoading, loadMore, selectedDate])
-
-  useEffect(() => {
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [handleScroll])
+  }, [hasMore, postsLoading, isLoadingMore, loadMore, selectedDate])
 
   // Tarih değiştiğinde filtrele
   const handleDateChange = (date: string) => {
@@ -135,8 +128,15 @@ export default function Page() {
               return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
             })} />
             {hasMore && (
-              <div className="text-center py-4">
-                <p className="text-gray-500 text-sm">Scroll down to load more notes...</p>
+              <div className="text-center py-8">
+                <Button
+                  onClick={handleLoadMore}
+                  disabled={postsLoading || isLoadingMore}
+                  variant="outline"
+                  className="px-6 py-2"
+                >
+                  {isLoadingMore ? 'Loading...' : 'Load More Notes'}
+                </Button>
               </div>
             )}
           </>

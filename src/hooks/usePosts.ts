@@ -13,14 +13,19 @@ export interface Post {
 export const usePosts = () => {
   const [posts, setPosts] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
 
   // Posts'ları yükle
-  const fetchPosts = useCallback(async (page = 1, date?: string, append = false) => {
+  const fetchPosts = useCallback(async (page = 1, date?: string, append = false, isLoadMore = false) => {
     try {
-      setIsLoading(true)
+      if (isLoadMore) {
+        setIsLoadingMore(true)
+      } else {
+        setIsLoading(true)
+      }
       const params = new URLSearchParams({
         page: page.toString(),
         limit: '20'
@@ -48,16 +53,20 @@ export const usePosts = () => {
     } catch {
       toast.error('Error loading posts')
     } finally {
-      setIsLoading(false)
+      if (isLoadMore) {
+        setIsLoadingMore(false)
+      } else {
+        setIsLoading(false)
+      }
     }
   }, [])
 
   // Daha fazla post yükle
   const loadMore = useCallback(async (date?: string) => {
-    if (!isLoading && hasMore) {
-      await fetchPosts(currentPage + 1, date, true)
+    if (!isLoading && !isLoadingMore && hasMore) {
+      await fetchPosts(currentPage + 1, date, true, true)
     }
-  }, [fetchPosts, currentPage, hasMore, isLoading])
+  }, [fetchPosts, currentPage, hasMore, isLoading, isLoadingMore])
 
   // Yeni post oluştur
   const createPost = useCallback(async (content: string, author?: string) => {
@@ -167,6 +176,7 @@ export const usePosts = () => {
   return {
     posts,
     isLoading,
+    isLoadingMore,
     isCreating,
     hasMore,
     currentPage,
