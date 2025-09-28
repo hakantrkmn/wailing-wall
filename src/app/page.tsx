@@ -70,9 +70,12 @@ export default function Page() {
         </div>
 
         {/* Create Post - her zaman anonim */}
-        <CreatePost onPostCreated={(post) => {
-          setPosts(prev => [post, ...(prev ?? posts)])
-        }} />
+        <CreatePost
+          currentUser={user}
+          onPostCreated={(post) => {
+            setPosts(prev => [post, ...(prev ?? posts)])
+          }}
+        />
       </div>
 
       {/* Notes Wall - full width with side padding */}

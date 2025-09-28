@@ -1,20 +1,20 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Post, usePosts } from "@/hooks/usePosts"
 import { motion } from "framer-motion"
-import { useUser } from "@/hooks/useUser"
 
 interface CreatePostProps {
   onPostCreated: (post: Post) => void
+  currentUser?: string
 }
 
-export function CreatePost({ onPostCreated }: CreatePostProps) {
+export function CreatePost({ onPostCreated, currentUser }: CreatePostProps) {
   const [content, setContent] = useState("")
   const { createPost, isCreating } = usePosts()
-  const { user } = useUser()
+
 
   function hashStringToNumber(input: string): number {
     let hash = 0
@@ -36,19 +36,19 @@ export function CreatePost({ onPostCreated }: CreatePostProps) {
   const colors = palette[seed % palette.length]
   const rotation = (seed % 7) - 3 // -3..+3
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!content.trim()) {
       return
     }
 
-    const success = await createPost(content.trim(), user || undefined)
+    const success = await createPost(content.trim(), currentUser || undefined)
     if (success) {
       setContent("")
       onPostCreated(success as Post)
     }
-  }
+  }, [content, currentUser, createPost, onPostCreated])
 
   return (
     <motion.div
